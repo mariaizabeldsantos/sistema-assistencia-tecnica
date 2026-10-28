@@ -32,6 +32,18 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/health/db")
+def health_db():
+    """Diagnóstico: confirma se a API consegue falar com o banco (não expõe dados)."""
+    from sqlalchemy import text
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"api": "ok", "database": "ok"}
+    except Exception:
+        return {"api": "ok", "database": "erro"}
+
+
 app.include_router(auth.router)
 app.include_router(clients.router)
 app.include_router(equipment.router)

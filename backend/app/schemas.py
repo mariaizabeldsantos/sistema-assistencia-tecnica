@@ -12,6 +12,7 @@ class SetupIn(BaseModel):
     nome: str
     email: EmailStr
     senha: str
+    codigoConfiguracao: Optional[str] = None
 
     @field_validator("senha")
     @classmethod

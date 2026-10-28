@@ -1,5 +1,10 @@
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from ..config import settings
 
 from .. import models, schemas
 from ..database import get_db
@@ -12,14 +17,21 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def status(db: Session = Depends(get_db)):
     """Informa se o sistema já possui um administrador configurado."""
     has_admin = db.query(models.User).filter(models.User.role == "admin").first() is not None
-    return {"configured": has_admin}
+    return {"configured": has_admin, "setupTokenRequired": bool(settings.SETUP_TOKEN)}
 
 
 @router.post("/setup", response_model=schemas.TokenOut)
 def setup(payload: schemas.SetupIn, db: Session = Depends(get_db)):
+    # Trava no banco até o fim da transação: impede que duas requisições simultâneas
+    # criem dois administradores (a segunda espera e já encontra o admin criado).
+    db.execute(text("SELECT pg_advisory_xact_lock(727001)"))
     has_admin = db.query(models.User).filter(models.User.role == "admin").first()
     if has_admin:
         raise HTTPException(400, "O sistema já foi configurado.")
+    if settings.SETUP_TOKEN and not secrets.compare_digest(
+        (payload.codigoConfiguracao or "").encode(), settings.SETUP_TOKEN.encode()
+    ):
+        raise HTTPException(403, "Código de configuração inválido.")
     if len(payload.nome.strip()) < 3:
         raise HTTPException(400, "Nome deve ter ao menos 3 caracteres.")
     if not payload.nomeAssistencia.strip():

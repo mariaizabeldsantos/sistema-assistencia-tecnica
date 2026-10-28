@@ -7,9 +7,9 @@ import { validEmail } from '../utils';
 import { apiErrorMessage } from '../api/client';
 
 export default function Setup() {
-  const { setup } = useAuth();
+  const { setup, setupTokenRequired } = useAuth();
   const navigate = useNavigate();
-  const [f, setF] = useState({ nomeAssistencia: '', nome: '', email: '', senha: '', senha2: '' });
+  const [f, setF] = useState({ nomeAssistencia: '', nome: '', email: '', senha: '', senha2: '', codigo: '' });
   const [err, setErr] = useState({});
   const [busy, setBusy] = useState(false);
 
@@ -21,11 +21,12 @@ export default function Setup() {
     if (!validEmail(f.email) || !f.email) errs.email = 'Informe um e-mail válido.';
     if (f.senha.length < 8 || f.senha.length > 64) errs.senha = 'A senha deve ter entre 8 e 64 caracteres.';
     if (f.senha !== f.senha2) errs.senha2 = 'As senhas não coincidem.';
+    if (setupTokenRequired && !f.codigo.trim()) errs.codigo = 'Informe o código de configuração.';
     setErr(errs);
     if (Object.keys(errs).length) return;
     setBusy(true);
     try {
-      await setup({ nomeAssistencia: f.nomeAssistencia.trim(), nome: f.nome.trim(), email: f.email.trim(), senha: f.senha });
+      await setup({ nomeAssistencia: f.nomeAssistencia.trim(), nome: f.nome.trim(), email: f.email.trim(), senha: f.senha, codigoConfiguracao: f.codigo.trim() || undefined });
       navigate('/');
     } catch (e2) {
       setErr({ geral: apiErrorMessage(e2) });
@@ -57,6 +58,11 @@ export default function Setup() {
           <Field label="Confirmar senha" required error={err.senha2}>
             <input className="input" type="password" maxLength={64} value={f.senha2} onChange={(e) => setF({ ...f, senha2: e.target.value })} />
           </Field>
+          {setupTokenRequired && (
+            <Field label="Código de configuração" required error={err.codigo}>
+              <input className="input" type="password" value={f.codigo} onChange={(e) => setF({ ...f, codigo: e.target.value })} />
+            </Field>
+          )}
           {err.geral && <div className="err" style={{ marginBottom: 10 }}>{err.geral}</div>}
           <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 6 }} disabled={busy}>
             {busy ? 'Criando…' : 'Criar conta e iniciar sistema'}

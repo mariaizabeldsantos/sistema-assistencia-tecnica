@@ -1,8 +1,21 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
-import api from '../api/client';
+import api, { API_URL } from '../api/client';
 
 const AuthContext = createContext(null);
+
+function Aviso({ titulo, texto, detalhe, onRetry }) {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div className="card" style={{ maxWidth: 440, width: '100%', textAlign: 'center' }}>
+        <div className="disp" style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>{titulo}</div>
+        <p className="dim" style={{ fontSize: 14 }}>{texto}</p>
+        {detalhe && <p className="dim" style={{ fontSize: 12, wordBreak: 'break-all' }}>{detalhe}</p>}
+        {onRetry && <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={onRetry}>Tentar novamente</button>}
+      </div>
+    </div>
+  );
+}
 
 export function AuthProvider({ children }) {
   const [session, setSessionState] = useState(() => {
@@ -11,13 +24,31 @@ export function AuthProvider({ children }) {
   });
   const [loading, setLoading] = useState(true);
   const [configured, setConfigured] = useState(null);
+  const [setupTokenRequired, setSetupTokenRequired] = useState(false);
+  const [apiError, setApiError] = useState(false);
 
-  useEffect(() => {
-    api.get('/auth/status')
-      .then((r) => setConfigured(r.data.configured))
-      .catch(() => setConfigured(true))
-      .finally(() => setLoading(false));
+  // Pergunta à API se já existe administrador. Se a API não responder (ex.: serviço
+  // gratuito ainda "acordando"), tenta de novo; NUNCA assume que o sistema está
+  // configurado só porque a chamada falhou.
+  const checkStatus = useCallback(async () => {
+    setLoading(true); setApiError(false);
+    for (let tentativa = 0; tentativa < 8; tentativa++) {
+      try {
+        const r = await api.get('/auth/status');
+        setConfigured(!!r.data.configured);
+        setSetupTokenRequired(!!r.data.setupTokenRequired);
+        setLoading(false);
+        return;
+      } catch (e) {
+        if (e.response && e.response.status < 500) break; // resposta real da API, não é "dormindo"
+        await new Promise((res) => setTimeout(res, 5000));
+      }
+    }
+    setApiError(true);
+    setLoading(false);
   }, []);
+
+  useEffect(() => { checkStatus(); }, [checkStatus]);
 
   const applySession = useCallback((data) => {
     const sess = {
@@ -48,8 +79,17 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, loading, configured, login, setup, logout }}>
-      {children}
+    <AuthContext.Provider value={{ session, loading, configured, setupTokenRequired, login, setup, logout }}>
+      {loading ? (
+        <Aviso titulo="Conectando ao servidor…" texto="Na primeira abertura o servidor gratuito pode levar até 1 minuto para acordar." />
+      ) : apiError ? (
+        <Aviso
+          titulo="Servidor indisponível"
+          texto="Não foi possível se conectar à API do sistema. Isto não significa que o login está errado."
+          detalhe={`Endereço da API usado por este site: ${API_URL}`}
+          onRetry={checkStatus}
+        />
+      ) : children}
     </AuthContext.Provider>
   );
 }
