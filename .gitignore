@@ -28,6 +28,3 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
-
-# --- Docker ---
-# (volumes nomeados do Postgres não geram arquivo local; nada a ignorar aqui)

@@ -8,10 +8,12 @@ from .routers import auth, clients, equipment, orders, parts, settings_router, r
 
 app = FastAPI(title="Assistência Técnica API", version="1.0.0")
 
+_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(",")],
-    allow_credentials=True,
+    allow_origins=_origins,
+    # a autenticação usa token Bearer (não cookies); com "*" não se usa credentials
+    allow_credentials="*" not in _origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
