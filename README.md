@@ -2,12 +2,11 @@
 
 Sistema de gestão para assistência técnica, desenvolvido como projeto integrado
 das disciplinas de **Engenharia de Software III**, **Laboratório de Banco de
-Dados**, **Gestão de Projetos** e **Programação Orientada a Objetos (POO)**.
+Dados** e **Gestão de Projetos**.
 
 - **Frontend:** React 18 + Vite + React Router
 - **Backend:** Python + FastAPI (JWT, bcrypt)
-- **Banco de dados:** PostgreSQL (SQLAlchemy)
-- **Módulo em Java:** cadastro simples em memória (ver `java-cadastro-simples/`)
+- **Banco de dados:** PostgreSQL (SQLAlchemy) - scripts SQL, DER e consultas na pasta [`database/`](./database/)
 
 Funcionalidades: 
 Cadastro de clientes e equipamentos, ordens de serviço com
@@ -32,7 +31,13 @@ frontend/                # SPA React
     ├── components/          # Modal, Field, StatusBadge, etc.
     ├── context/             # Autenticação
     └── api/                 # Cliente HTTP
-java-cadastro-simples/   # Módulo Java (POO básico) - ver README próprio
+database/                # Banco de dados: DER, schema, dados, consultas, transações
+├── 01_schema.sql           # Criação das tabelas (DDL)
+├── 02_dados_exemplo.sql    # Dados de demonstração (INSERT)
+├── 03_consultas.sql        # SELECT, JOIN, GROUP BY, HAVING, views
+├── 04_transacoes.sql       # BEGIN / COMMIT / ROLLBACK
+├── 05_permissoes.sql       # GRANT / REVOKE
+└── DER.md, der.png         # Diagrama e dicionário de dados
 docker-compose.yml
 ```
 
@@ -48,8 +53,10 @@ docker compose up --build
 - Frontend: http://localhost:5173
 - PostgreSQL: porta 5432 (usuário `postgres`, senha `postgres`, banco `assistencia`)
 
-Na primeira execução, as tabelas são criadas automaticamente (via SQLAlchemy,
-sem necessidade de ferramenta de migração - ver decisão abaixo). Acesse
+Na primeira execução, o PostgreSQL cria as tabelas a partir de
+[`database/01_schema.sql`](./database/01_schema.sql) (montado no `docker-compose.yml`).
+Se o banco já existir sem elas, o backend também as cria sozinho ao iniciar
+(via SQLAlchemy, sem ferramenta de migração - ver decisão abaixo). Acesse
 `http://localhost:5173` e você verá a tela **"Primeiro acesso"**, onde é criado
 o usuário administrador e o nome da assistência técnica.
 
@@ -72,23 +79,15 @@ npm install
 npm run dev
 ```
 
-### Módulo Java (cadastro simples)
-
-Veja instruções detalhadas em [`java-cadastro-simples/README.md`](./java-cadastro-simples/README.md).
-Resumo: não precisa do Docker rodando (é independente do banco). Só:
-```bash
-cd java-cadastro-simples/src
-javac *.java
-java Main
-```
-
 ## Principais decisões técnicas (e por quê)
 
-- **Schema do banco criado via `Base.metadata.create_all()`, sem ferramenta de
-  migração.** Para o escopo deste projeto acadêmico isso é suficiente e muito
-  mais simples de explicar do que um sistema de migrações versionado - o
-  professor de Lab de Banco de Dados consegue ver a estrutura completa direto
-  em `backend/app/models.py`.
+- **Schema do banco em SQL puro, sem ferramenta de migração.** O arquivo
+  `database/01_schema.sql` descreve todas as tabelas e é o que o Docker usa para
+  criar o banco; ele equivale ao `backend/app/models.py`, que continua sendo
+  usado pelo SQLAlchemy (e cria as tabelas sozinho caso não existam). Para o
+  escopo deste projeto acadêmico isso é suficiente e muito mais simples de
+  explicar do que um sistema de migrações versionado. O DER e o dicionário de
+  dados estão em `database/DER.md`.
 - **Senhas com bcrypt** (via `passlib`) - nunca texto puro nem hash simples.
 - **Autenticação JWT** com dois papéis: `admin` (equipe da assistência) e
   `client` (cliente final, acessa apenas as próprias OS). O acesso do cliente
@@ -105,12 +104,11 @@ java Main
 - Todas as validações de formulário (tamanho de nome, CPF, telefone, e-mail,
   senha) são feitas tanto no frontend (experiência do usuário) quanto - de
   forma obrigatória - no backend (segurança real).
-- **Módulo Java independente, em memória**: em vez de conectar em banco de
-  dados (JDBC/SQL), o módulo `java-cadastro-simples/` guarda os dados só
-  enquanto o programa está rodando. Essa escolha foi feita de propósito para
-  manter o Java focado só em POO básico (classes, objetos, encapsulamento),
-  sem empilhar Maven + driver JDBC + SQL numa disciplina onde isso ainda não
-  foi visto a fundo.
+## Banco de dados
+
+Tudo sobre o banco está em [`database/`](./database/): diagrama (DER), dicionário de dados,
+scripts de criação, dados de exemplo, consultas SQL, transações e permissões. Leia o
+[`database/README.md`](./database/README.md) para ver como criar o banco e a ordem dos scripts.
 
 ## Fora do escopo (intencionalmente)
 
