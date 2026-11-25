@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, CheckCircle2, XCircle } from 'lucide-react';
-import api, { apiErrorMessage } from '../api/client';
+import api, { estoqueApi, apiErrorMessage } from '../api/client';
 import { PageHead, BackLink, StatusBadge, OSTimeline, Field, Counter, Toast, CurrencyInput } from '../components/common';
 import { fmtDate, fmtDateTime, fmtBRL } from '../utils';
 
@@ -258,7 +258,11 @@ function AbaPecas({ order, onSaved, onError }) {
   const [qtd, setQtd] = useState(1);
   const podeUsar = order.status === 'EM_MANUTENCAO';
 
-  useEffect(() => { api.get('/parts').then((r) => setPecas(r.data)); }, [order]);
+  // Lista de peças vem da API Java; se ela estiver fora do ar, usa a rota equivalente do Python.
+  // (A baixa da peça na OS continua sendo feita pelo Python em /orders/{id}/pecas.)
+  useEffect(() => {
+    estoqueApi.get('/parts').catch(() => api.get('/parts')).then((r) => setPecas(r.data));
+  }, [order]);
 
   async function usar() {
     if (!pecaId) return;

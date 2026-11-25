@@ -31,15 +31,35 @@ services:
       db:
         condition: service_healthy
 
+  # Módulo de Estoque em Java / Spring Boot (usa o mesmo banco e o mesmo SECRET_KEY do backend)
+  estoque:
+    build: ./estoque-java
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/assistencia
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      SECRET_KEY: troque-esta-chave-por-uma-bem-aleatoria
+      CORS_ORIGINS: http://localhost:5173
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
   frontend:
     build: ./frontend
     restart: unless-stopped
     environment:
       VITE_API_URL: http://localhost:8000
+      VITE_ESTOQUE_API_URL: http://localhost:8080
     ports:
       - "5173:5173"
     depends_on:
       - backend
+      - estoque
 
 volumes:
   db_data:

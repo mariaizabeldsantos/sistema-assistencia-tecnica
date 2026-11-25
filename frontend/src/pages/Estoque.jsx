@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Package, Plus, ArrowUpCircle, ArrowDownCircle, Edit3 } from 'lucide-react';
-import api, { apiErrorMessage } from '../api/client';
+import { estoqueApi, apiErrorMessage } from '../api/client';
 import { PageHead, EmptyState, Modal, Field, Toast, CurrencyInput } from '../components/common';
 import { fmtBRL, fmtDateTime } from '../utils';
 
@@ -10,22 +10,32 @@ export default function Estoque() {
   const [editPeca, setEditPeca] = useState(null);
   const [movPeca, setMovPeca] = useState(null);
   const [toast, setToast] = useState(null);
+  const [soBaixo, setSoBaixo] = useState(false);
 
-  async function load() { const r = await api.get('/parts'); setPecas(r.data); }
-  useEffect(() => { load(); }, []);
+  // Módulo de Estoque: tudo vem da API Java (Spring Boot).
+  async function load() { const r = await estoqueApi.get('/parts'); setPecas(r.data); }
+  useEffect(() => { load().catch((e) => notify(apiErrorMessage(e), 'error')); }, []);
 
   function notify(msg, kind = 'success') { setToast({ msg, kind }); setTimeout(() => setToast(null), 3000); }
+
+  const totalBaixo = pecas.filter((p) => p.quantidade <= p.estoqueMinimo).length;
+  const visiveis = soBaixo ? pecas.filter((p) => p.quantidade <= p.estoqueMinimo) : pecas;
 
   return (
     <div>
       <Toast toast={toast} />
       <PageHead title="Estoque de peças" subtitle={`${pecas.length} peças cadastradas`}
         action={<button className="btn btn-primary" onClick={() => setShowNew(true)}><Plus size={15} />Nova peça</button>} />
+      <div className="row gap8" style={{ marginBottom: 12 }}>
+        <button className={`btn btn-sm ${soBaixo ? 'btn-primary' : ''}`} onClick={() => setSoBaixo(!soBaixo)}>
+          {soBaixo ? 'Mostrar todas' : `Somente estoque baixo (${totalBaixo})`}
+        </button>
+      </div>
       <div className="card" style={{ padding: 0 }}>
-        {pecas.length === 0 ? <EmptyState icon={Package} text="Nenhuma peça cadastrada." /> : (
+        {visiveis.length === 0 ? <EmptyState icon={Package} text={soBaixo ? 'Nenhuma peça com estoque baixo.' : 'Nenhuma peça cadastrada.'} /> : (
           <table><thead><tr><th>Peça</th><th>Categoria</th><th>Qtd.</th><th>Mín.</th><th>Preço orçamento</th><th></th></tr></thead>
             <tbody>
-              {pecas.map((p) => {
+              {visiveis.map((p) => {
                 const baixo = p.quantidade <= p.estoqueMinimo;
                 return (
                   <tr key={p.id}>
@@ -69,7 +79,7 @@ function PecaForm({ initial, onClose }) {
     setBusy(true);
     try {
       const payload = { ...f, quantidade: Number(f.quantidade), estoqueMinimo: Number(f.estoqueMinimo), custoAquisicao: Number(f.custoAquisicao), precoOrcamento: Number(f.precoOrcamento) };
-      if (isEdit) await api.put(`/parts/${f.id}`, payload); else await api.post('/parts', payload);
+      if (isEdit) await estoqueApi.put(`/parts/${f.id}`, payload); else await estoqueApi.post('/parts', payload);
       onClose();
     } catch (e2) { setErr(apiErrorMessage(e2)); } finally { setBusy(false); }
   }
@@ -116,13 +126,13 @@ function MovimentacaoModal({ peca, onClose, onSaved, onError }) {
   const [movs, setMovs] = useState([]);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { api.get(`/parts/${peca.id}/movimentacoes`).then((r) => setMovs(r.data)); }, [peca]);
+  useEffect(() => { estoqueApi.get(`/parts/${peca.id}/movimentacoes`).then((r) => setMovs(r.data)); }, [peca]);
 
   async function submit(e) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post(`/parts/${peca.id}/movimentar`, { tipo, quantidade: Number(quantidade), motivo });
+      await estoqueApi.post(`/parts/${peca.id}/movimentar`, { tipo, quantidade: Number(quantidade), motivo });
       onSaved(`Estoque atualizado (${tipo === 'entrada' ? '+' : '-'}${quantidade}).`);
     } catch (e2) { onError(e2); } finally { setBusy(false); }
   }

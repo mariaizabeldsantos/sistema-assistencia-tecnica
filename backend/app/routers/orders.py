@@ -223,7 +223,9 @@ def registrar_aprovacao(order_id: str, payload: schemas.AprovacaoIn, db: Session
 @router.post("/{order_id}/pecas", response_model=schemas.OrderOut)
 def usar_peca(order_id: str, payload: schemas.UsarPecaIn, db: Session = Depends(get_db), user=Depends(require_admin)):
     order = _get_order_or_404(db, order_id)
-    peca = db.query(models.Part).filter(models.Part.id == payload.pecaId).first()
+    # with_for_update(): trava a linha da peça (SELECT ... FOR UPDATE) até o commit, a mesma
+    # trava que o módulo de Estoque em Java usa, evitando baixas simultâneas conflitantes.
+    peca = db.query(models.Part).filter(models.Part.id == payload.pecaId).with_for_update().first()
     if not peca:
         raise HTTPException(400, "Selecione uma peça.")
     if payload.quantidade < 1:
